@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SDG 11: Multistage Graph Shortest Path Finder | Sustainable City Router</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none; /* avoid accidental text selection on drag, but fine */
+        }
+
+        body {
+            background: linear-gradient(145deg, #d4e0d9 0%, #b6cdbc 100%);
+            font-family: 'Segoe UI', Roboto, 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* main card container */
+        .project-container {
+            max-width: 1350px;
+            width: 100%;
+            background: #fef9e8;
+            border-radius: 3rem;
+            box-shadow: 0 25px 45px rgba(0, 20, 0, 0.3), inset 0 1px 2px rgba(255,255,240,0.8);
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        /* header with SDG theme */
+        .sdg-header {
+            background: #2c5e3f;
+            padding: 1.2rem 2rem;
+            color: #FFE8C5;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 5px solid #f4b942;
+        }
+        .title-section h1 {
+            margin: 0;
+            font-weight: 700;
+            font-size: 1.9rem;
+            letter-spacing: -0.5px;
+        }
+        .title-section p {
+            margin: 0.3rem 0 0;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+        .sdg-badge {
+            background: #f4b942;
+            padding: 0.4rem 1rem;
+            border-radius: 60px;
+            font-weight: bold;
+            color: #1f3b2c;
+            font-size: 0.9rem;
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,0.1);
+        }
+
+        /* two column layout */
+        .content-split {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .graph-canvas-area {
+            flex: 2;
+            min-width: 280px;
+            background: #fffaf2;
+            padding: 1.5rem;
+            border-right: 1px solid #e2dccd;
+        }
+        .control-panel {
+            flex: 1.2;
+            min-width: 260px;
+            background: #f7f3e9;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* canvas wrapper */
+        .canvas-wrapper {
+            background: #eef3e6;
+            border-radius: 2rem;
+            padding: 0.8rem;
+            box-shadow: inset 0 0 0 2px white, 0 8px 20px rgba(0,0,0,0.1);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #fef7e9;
+            border-radius: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+        .graph-legend {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.75rem;
+            justify-content: center;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 12px;
+            border-radius: 20px;
+        }
+
+        /* control components */
+        .info-card {
+            background: white;
+            border-radius: 1.5rem;
+            padding: 1rem 1.2rem;
+            box-shadow: 0 5px 12px rgba(0,0,0,0.05);
+        }
+        .info-card h3 {
+            margin-top: 0;
+            margin-bottom: 0.7rem;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #2c5e3f;
+        }
+        .path-result {
+            background: #e8f0e3;
+            border-radius: 1.2rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-weight: bold;
+            word-break: break-word;
+        }
+        .cost-value {
+            font-size: 1.7rem;
+            font-weight: 800;
+            color: #c45500;
+        }
+        button {
+            background: #2c5e3f;
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 0.7rem 1.2rem;
+            border-radius: 3rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: 0.1s linear;
+            width: 100%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button:hover {
+            background: #1e462f;
+            transform: scale(0.98);
+        }
+        .reset-btn {
+            background: #b6682c;
+        }
+        .reset-btn:hover {
+            background: #8f501f;
+        }
+        .stage-badge {
+            display: inline-block;
+            background: #d4cfb8;
+            border-radius: 20px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-left: 6px;
+        }
+        hr {
+            margin: 0.5rem 0;
+            border-color: #e2d4bd;
+        }
+        .footnote {
+            font-size: 0.7rem;
+            text-align: center;
+            color: #6b5e42;
+            margin-top: 0.8rem;
+        }
+        @media (max-width: 800px) {
+            .content-split { flex-direction: column; }
+            .graph-canvas-area { border-right: none; border-bottom: 1px solid #e2dccd; }
+        }
+    </style>
+</head>
+<body>
+<div class="project-container">
+    <div class="sdg-header">
+        <div class="title-section">
+            <h1>🏙️ Multistage Graph Shortest Path</h1>
+            <p>🌿 Sustainable City Connector · Optimized route for SDG 11 (inclusive & resilient infrastructure)</p>
+        </div>
+        <div class="sdg-badge">SDG 11 | SUSTAINABLE CITIES</div>
+    </div>
+
+    <div class="content-split">
+        <!-- Canvas area for graph visualization -->
+        <div class="graph-canvas-area">
+            <div class="canvas-wrapper">
+                <canvas id="stageCanvas" width="900" height="500" style="width:100%; height:auto; max-width:900px; aspect-ratio:900/500"></canvas>
+            </div>
+            <div class="graph-legend">
+                <div class="legend-item"><div class="legend-color" style="background:#2c5e3f;"></div> Nodes (Stages 0..k)</div>
+                <div class="legend-item"><div class="legend-color" style="background:#f4b942;"></div> Shortest Path Highlight</div>
+                <div class="legend-item"><div class="legend-color" style="background:#a0b8c5;"></div> Regular Edge</div>
+                <div class="legend-item"><div class="legend-color" style="background:#d9534f;"></div> Source (S) / Target (T)</div>
+            </div>
+            <div class="footnote">✨ Click any node to see its info | Dynamic multistage DP shortest path (forward/backward)</div>
+        </div>
+
+        <!-- Right panel: controls & results -->
+        <div class="control-panel">
+            <div class="info-card">
+                <h3>📍 Multistage Graph</h3>
+                <div style="font-size:0.85rem">Stages: 0 → 1 → 2 → 3 → 4 (5 stages)<br>Nodes: S (stage0), A/B, C/D/E, F/G, T (stage4)<br>Each edge cost = travel time / energy impact</div>
+                <hr>
+                <div><strong>🎯 Optimal Path (min cost)</strong></div>
+                <div class="path-result" id="pathDisplay">—</div>
+                <div style="margin-top: 8px;"><strong>💰 Minimum Total Cost:</strong> <span id="minCostDisplay" class="cost-value">∞</span> <span style="font-size:0.8rem">(sustainable metric)</span></div>
+            </div>
+
+            <div class="info-card">
+                <h3>⚙️ Route Optimizer <span class="stage-badge">Dynamic Programming</span></h3>
+                <button id="computeBtn">🌱 FIND SHORTEST PATH (SDG 11)</button>
+                <button id="resetHighlightBtn" class="reset-btn" style="margin-top: 10px;">🔄 Reset Highlighting</button>
+                <p style="font-size: 0.7rem; margin-top: 12px;">✅ DP algorithm respects multistage ordering (edges only from stage i to i+1). <br>Supports sustainable & efficient urban connectivity.</p>
+            </div>
+
+            <div class="info-card">
+                <h3>🏷️ Node Inspector</h3>
+                <div id="nodeInfoBox" style="background:#fff0dd; border-radius: 1rem; padding: 0.6rem; font-size:0.85rem">
+                    Click any node on graph to see details & stage
+                </div>
+                <div style="margin-top: 10px; font-size:0.7rem; color:#4a6741;">📌 Based on real-world city planning: minimize travel cost, support inclusive access</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- MULTISTAGE GRAPH DEFINITION (SDG 11 themed) ----------
+        // Stages: 0 (source S), 1 (A,B), 2 (C,D,E), 3 (F,G), 4 (target T)
+        // Node naming: id, stage, label, x (normalized position)
+        const nodes = [
+            { id: "S", stage: 0, label: "🏙️ S", x: 0.10, y: 0.50 },   // source
+            { id: "A", stage: 1, label: "🚏 A", x: 0.28, y: 0.30 },
+            { id: "B", stage: 1, label: "🚦 B", x: 0.28, y: 0.70 },
+            { id: "C", stage: 2, label: "🏘️ C", x: 0.48, y: 0.20 },
+            { id: "D", stage: 2, label: "🏥 D", x: 0.48, y: 0.50 },
+            { id: "E", stage: 2, label: "🌳 E", x: 0.48, y: 0.80 },
+            { id: "F", stage: 3, label: "🏫 F", x: 0.70, y: 0.35 },
+            { id: "G", stage: 3, label: "🚲 G", x: 0.70, y: 0.65 },
+            { id: "T", stage: 4, label: "🎯 T", x: 0.88, y: 0.50 }
+        ];
+
+        // edges: from -> to (only forward edges between consecutive stages)
+        // cost represents travel time / energy / economic metric (lower is better for SDG 11)
+        const edgesData = [
+            { from: "S", to: "A", cost: 5 },
+            { from: "S", to: "B", cost: 7 },
+            { from: "A", to: "C", cost: 4 },
+            { from: "A", to: "D", cost: 6 },
+            { from: "B", to: "D", cost: 3 },
+            { from: "B", to: "E", cost: 8 },
+            { from: "C", to: "F", cost: 5 },
+            { from: "C", to: "G", cost: 9 },
+            { from: "D", to: "F", cost: 2 },
+            { from: "D", to: "G", cost: 4 },
+            { from: "E", to: "G", cost: 3 },
+            { from: "F", to: "T", cost: 6 },
+            { from: "G", to: "T", cost: 5 }
+        ];
+
+        // Build adjacency list for DP
+        const nodeMap = new Map(); // id -> node obj
+        nodes.forEach(n => nodeMap.set(n.id, n));
+        
+        // Also store edges indexed by from node
+        const adj = new Map(); // from id -> array of {to, cost}
+        edgesData.forEach(edge => {
+            if(!adj.has(edge.from)) adj.set(edge.from, []);
+            adj.get(edge.from).push({ to: edge.to, cost: edge.cost });
+        });
+        
+        // reverse adjacency for optional display but DP forward works.
+        const stagesSet = new Set();
+        nodes.forEach(n => stagesSet.add(n.stage));
+        const maxStage = Math.max(...nodes.map(n=>n.stage));
+        const minStage = 0;
+        
+        // group nodes by stage for DP ordering
+        const nodesByStage = new Map();
+        nodes.forEach(n => {
+            if(!nodesByStage.has(n.stage)) nodesByStage.set(n.stage, []);
+            nodesByStage.get(n.stage).push(n);
+        });
+        
+        // ---------- DP Shortest Path Computation (multistage graph property: edges only i -> i+1) ----------
+        function computeShortestPath() {
+            // dp map: node id -> { cost, prevNode }
+            const dp = new Map(); 
+            const source = "S";
+            const target = "T";
+            // initialize source cost 0
+            dp.set(source, { cost: 0, prev: null });
+            // process stages in increasing order
+            const sortedStages = Array.from(nodesByStage.keys()).sort((a,b)=>a-b);
+            for(let stage of sortedStages) {
+                const stageNodes = nodesByStage.get(stage);
+                for(let node of stageNodes) {
+                    const curId = node.id;
+                    if(!dp.has(curId)) continue; // unreachable
+                    const curCost = dp.get(curId).cost;
+                    // relax outgoing edges (only to next stage automatically by graph structure)
+                    const outgoing = adj.get(curId) || [];
+                    for(let edge of outgoing) {
+                        const nextId = edge.to;
+                        const newCost = curCost + edge.cost;
+                        if(!dp.has(nextId) || newCost < dp.get(nextId).cost) {
+                            dp.set(nextId, { cost: newCost, prev: curId });
+                        }
+                    }
+                }
+            }
+            if(!dp.has(target)) {
+                return { path: [], totalCost: Infinity, success: false };
+            }
+            // reconstruct path from target to source
+            const pathRev = [];
+            let cur = target;
+            while(cur !== null) {
+                pathRev.push(cur);
+                const prevNode = dp.get(cur).prev;
+                cur = prevNode;
+            }
+            const path = pathRev.reverse();
+            const totalCost = dp.get(target).cost;
+            return { path, totalCost, success: true };
+        }
+        
+        // ---------- Canvas drawing & visual highlights ----------
+        const canvas = document.getElementById('stageCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = 900, height = 500;
+        canvas.width = width;
+        canvas.height = height;
+        
+        // store node screen positions
+        let nodePositions = new Map(); // id -> {x, y}
+        
+        function computeNodeScreenPositions() {
+            nodePositions.clear();
+            for(let node of nodes) {
+                const screenX = node.x * width;
+                const screenY = node.y * height;
+                nodePositions.set(node.id, { x: screenX, y: screenY });
+            }
+        }
+        
+        let currentHighlightEdges = []; // array of {from, to} to highlight as golden
+        let currentHighlightPathNodes = new Set(); // node ids in path
+        
+        function drawGraph(highlightPathNodesSet = new Set(), highlightEdgesList = []) {
+            if(!ctx) return;
+            ctx.clearRect(0, 0, width, height);
+            // draw background subtle grid
+            ctx.save();
+            // draw edges (normal)
+            for(let edge of edgesData) {
+                const fromPos = nodePositions.get(edge.from);
+                const toPos = nodePositions.get(edge.to);
+                if(!fromPos || !toPos) continue;
+                const isHighlighted = highlightEdgesList.some(he => (he.from === edge.from && he.to === edge.to));
+                ctx.beginPath();
+                ctx.moveTo(fromPos.x, fromPos.y);
+                ctx.lineTo(toPos.x, toPos.y);
+                if(isHighlighted) {
+                    ctx.strokeStyle = "#f4b942";
+                    ctx.lineWidth = 5;
+                    ctx.shadowBlur = 6;
+                    ctx.shadowColor = "#f0a500";
+                } else {
+                    ctx.strokeStyle = "#9ba88d";
+                    ctx.lineWidth = 2.5;
+                    ctx.shadowBlur = 0;
+                }
+                ctx.stroke();
+                // draw cost label
+                const midX = (fromPos.x + toPos.x)/2;
+                const midY = (fromPos.y + toPos.y)/2;
+                ctx.font = "bold 14px 'Segoe UI'";
+                ctx.fillStyle = "#3c5e2b";
+                ctx.shadowBlur = 0;
+                ctx.fillText(edge.cost, midX-8, midY-6);
+                // arrow small marker
+                drawArrowhead(fromPos.x, fromPos.y, toPos.x, toPos.y, isHighlighted ? "#f4b942" : "#7d8f6e");
+            }
+            
+            // draw nodes
+            for(let node of nodes) {
+                const pos = nodePositions.get(node.id);
+                if(!pos) continue;
+                const isSourceTarget = (node.id === "S" || node.id === "T");
+                const isInPath = highlightPathNodesSet.has(node.id);
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 20, 0, 2*Math.PI);
+                ctx.fillStyle = isInPath ? "#f7dc6f" : (isSourceTarget ? "#f0a07c" : "#c9e0b3");
+                ctx.fill();
+                ctx.strokeStyle = isInPath ? "#d48d2b" : "#6a6f4d";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.font = "bold 16px 'Segoe UI'";
+                ctx.fillStyle = "#2d3e1f";
+                ctx.shadowBlur = 0;
+                ctx.fillText(node.label, pos.x-15, pos.y-14);
+                ctx.font = "10px monospace";
+                ctx.fillStyle = "#8b6946";
+                ctx.fillText(`s${node.stage}`, pos.x-6, pos.y+28);
+            }
+            
+            // additional source/target note
+            ctx.font = "italic 10px 'Segoe UI'";
+            ctx.fillStyle = "#b1561a";
+            ctx.fillText("🌿 sustainable route", width-100, 30);
+            ctx.restore();
+        }
+        
+        function drawArrowhead(fromX, fromY, toX, toY, color) {
+            const angle = Math.atan2(toY - fromY, toX - fromX);
+            const arrowSize = 10;
+            const arrowX = toX;
+            const arrowY = toY;
+            const angle1 = angle + Math.PI / 6;
+            const angle2 = angle - Math.PI / 6;
+            const wing1x = arrowX - arrowSize * 0.5 * Math.cos(angle1);
+            const wing1y = arrowY - arrowSize * 0.5 * Math.sin(angle1);
+            const wing2x = arrowX - arrowSize * 0.5 * Math.cos(angle2);
+            const wing2y = arrowY - arrowSize * 0.5 * Math.sin(angle2);
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowY);
+            ctx.lineTo(wing1x, wing1y);
+            ctx.lineTo(wing2x, wing2y);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        
+        function updateUIWithPath() {
+            const result = computeShortestPath();
+            if(result.success && result.path.length > 0) {
+                const pathNodes = result.path;
+                const totalCost = result.totalCost;
+                document.getElementById('pathDisplay').innerHTML = pathNodes.map(id => {
+                    const node = nodeMap.get(id);
+                    return `${node ? node.label : id}`;
+                }).join('  →  ');
+                document.getElementById('minCostDisplay').innerHTML = totalCost.toFixed(1);
+                // build edge highlight list from consecutive nodes
+                const highlightEdges = [];
+                const highlightNodeSet = new Set(pathNodes);
+                for(let i=0; i<pathNodes.length-1; i++) {
+                    highlightEdges.push({ from: pathNodes[i], to: pathNodes[i+1] });
+                }
+                currentHighlightEdges = highlightEdges;
+                currentHighlightPathNodes = highlightNodeSet;
+                drawGraph(currentHighlightPathNodes, currentHighlightEdges);
+            } else {
+                document.getElementById('pathDisplay').innerHTML = '⚠️ No valid path found (graph incomplete)';
+                document.getElementById('minCostDisplay').innerHTML = '∞';
+                currentHighlightEdges = [];
+                currentHighlightPathNodes.clear();
+                drawGraph(currentHighlightPathNodes, currentHighlightEdges);
+            }
+        }
+        
+        function resetHighlight() {
+            currentHighlightEdges = [];
+            currentHighlightPathNodes.clear();
+            drawGraph(currentHighlightPathNodes, currentHighlightEdges);
+            document.getElementById('pathDisplay').innerHTML = '—';
+            document.getElementById('minCostDisplay').innerHTML = '∞';
+        }
+        
+        // node inspector + click handling
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;   // canvas physical width vs displayed
+            const scaleY = canvas.height / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+            let closestNode = null;
+            let minDist = 28; // radius threshold
+            for(let node of nodes) {
+                const pos = nodePositions.get(node.id);
+                if(!pos) continue;
+                const dx = pos.x - mouseX;
+                const dy = pos.y - mouseY;
+                const dist = Math.hypot(dx, dy);
+                if(dist < minDist) {
+                    minDist = dist;
+                    closestNode = node;
+                }
+            }
+            if(closestNode) {
+                const node = closestNode;
+                const outgoingEdges = adj.get(node.id) || [];
+                const edgeInfo = outgoingEdges.map(ed => `${ed.to} (cost ${ed.cost})`).join(', ') || 'None';
+                document.getElementById('nodeInfoBox').innerHTML = `
+                    <strong>📍 ${node.label} (${node.id})</strong><br>
+                    🗺️ Stage: ${node.stage}<br>
+                    🚦 Outgoing edges: ${edgeInfo}<br>
+                    🌱 Sustainable city role: ${node.id === 'S' ? 'Origin hub' : node.id === 'T' ? 'Destination center' : 'Intermediate connector'}
+                `;
+            } else {
+                document.getElementById('nodeInfoBox').innerHTML = `✨ Click any node to see its details, stage, and outgoing connections.`;
+            }
+        }
+        
+        // resize handling: keep canvas ratio but we set fixed 900x500, but due to container scaling recalc positions based on actual canvas dimensions?
+        function refreshCanvasSize() {
+            const container = canvas.parentElement;
+            const computedWidth = canvas.clientWidth;
+            if(computedWidth > 0) {
+                // maintain aspect ratio 900/500
+                const newHeight = computedWidth * (500/900);
+                canvas.style.height = `${newHeight}px`;
+                // update internal dimensions? we keep drawing buffer at 900x500
+                // but the positions relative to mouse need correct mapping: canvas.width/height still 900/500.
+                // screen positions recalc each draw, but nodePositions are based on width,height var (900,500) perfect.
+            }
+            computeNodeScreenPositions();
+            drawGraph(currentHighlightPathNodes, currentHighlightEdges);
+        }
+        
+        window.addEventListener('resize', () => {
+            refreshCanvasSize();
+        });
+        
+        canvas.addEventListener('click', handleCanvasClick);
+        
+        document.getElementById('computeBtn').addEventListener('click', () => {
+            updateUIWithPath();
+        });
+        document.getElementById('resetHighlightBtn').addEventListener('click', () => {
+            resetHighlight();
+        });
+        
+        // initial draw
+        function init() {
+            computeNodeScreenPositions();
+            drawGraph(new Set(), []);
+            // initial DP result not shown until compute click, but we can show default hint
+            document.getElementById('nodeInfoBox').innerHTML = `💡 Click any node to inspect. Press "Find Shortest Path" to see optimal route under SDG 11 efficiency.`;
+            refreshCanvasSize();
+        }
+        
+        // also recompute positions on any canvas dimension shift due to CSS
+        const resizeObserver = new ResizeObserver(() => {
+            computeNodeScreenPositions();
+            drawGraph(currentHighlightPathNodes, currentHighlightEdges);
+        });
+        resizeObserver.observe(canvas);
+        init();
+    })();
+</script>
+</body>
+</html>
